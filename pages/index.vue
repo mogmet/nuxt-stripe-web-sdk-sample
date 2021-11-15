@@ -40,7 +40,6 @@ import { auth } from '~/firebase/firebase'
 interface PageStripeData {
   products: Product[],
   subscriptions: Subscription[],
-  uid: string | null,
   isLoading: boolean
 }
 export default Vue.extend({
@@ -49,7 +48,6 @@ export default Vue.extend({
     return {
       products: [] as Product[],
       subscriptions: [] as Subscription[],
-      uid: null,
       isLoading: false
     }
   },
