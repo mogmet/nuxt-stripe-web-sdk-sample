@@ -1,5 +1,12 @@
 # nuxt-stripe-web-sdk-sample
 
+## Prepare Setup
+
+please add your firebase setting into [.env](./blob/main/.env) file.
+
+And please setup firebase and stripe setting.
+cf: [Firebase ExtensionsのRun Subscription Payments with Stripeを使ってサブスク課金をコードを書かずに実装する](https://qiita.com/mogmet/items/cddc182156028c928ecf)
+
 ## Build Setup
 
 ```bash
