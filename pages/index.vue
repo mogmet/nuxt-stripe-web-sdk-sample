@@ -1,77 +1,87 @@
 <template>
-  <v-row justify="center" align="center">
-    <v-col cols="12" sm="8" md="6">
-      <v-card class="logo py-4 d-flex justify-center">
-        <NuxtLogo />
-        <VuetifyLogo />
+  <v-row>
+    <v-col v-if='this.subscriptions.length > 0'>
+      <v-card v-for='subscript in subscriptions' :key='subscript.id'>
+        <v-card-title>{{getProductTitle(subscript.product)}}</v-card-title>
+        <v-card-text>{{subscript.current_period_start}} - {{subscript.current_period_end}}</v-card-text>
       </v-card>
-      <v-card>
-        <v-card-title class="headline">
-          Welcome to the Vuetify + Nuxt.js template
-        </v-card-title>
+    </v-col>
+    <v-col v-for="product in products" v-else :key="product.id">
+      <v-img :src='product.images[0]' height='240' aspect-ratio='3' />
+      <v-card :loading='isLoading'>
+        <v-card-title>{{product.name}}</v-card-title>
+        <v-card-subtitle>{{product.description}}</v-card-subtitle>
         <v-card-text>
-          <p>Vuetify is a progressive Material Design component framework for Vue.js. It was designed to empower developers to create amazing applications.</p>
-          <p>
-            For more information on Vuetify, check out the <a
-              href="https://vuetifyjs.com"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              documentation
-            </a>.
-          </p>
-          <p>
-            If you have questions, please join the official <a
-              href="https://chat.vuetifyjs.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="chat"
-            >
-              discord
-            </a>.
-          </p>
-          <p>
-            Find a bug? Report it on the github <a
-              href="https://github.com/vuetifyjs/vuetify/issues"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="contribute"
-            >
-              issue board
-            </a>.
-          </p>
-          <p>Thank you for developing with Vuetify and I look forward to bringing more exciting features in the future.</p>
-          <div class="text-xs-right">
-            <em><small>&mdash; John Leider</small></em>
-          </div>
-          <hr class="my-3">
-          <a
-            href="https://nuxtjs.org/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Nuxt Documentation
-          </a>
-          <br>
-          <a
-            href="https://github.com/nuxt/nuxt.js"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Nuxt GitHub
-          </a>
+          <p>{{product.prices[0].unit_amount}}{{product.prices[0].currency}} / {{product.prices[0].interval_count}}{{product.prices[0].interval}}</p>
         </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            color="primary"
-            nuxt
-            to="/inspire"
-          >
-            Continue
-          </v-btn>
-        </v-card-actions>
+        <v-card-actions><v-btn :loading='isLoading' @click='onClickPurchase(product.prices[0].id)'>購入</v-btn></v-card-actions>
       </v-card>
     </v-col>
   </v-row>
 </template>
+
+<script lang='ts'>
+
+import {
+  createCheckoutSession,
+  getProducts,
+  onCurrentUserSubscriptionUpdate,
+  // eslint-disable-next-line import/named
+  Product,
+// eslint-disable-next-line import/named
+  Subscription
+} from '@stripe/firestore-stripe-payments'
+// import { Context } from '@nuxt/types'
+import Vue from 'vue'
+import { signInAnonymously } from 'firebase/auth'
+import { payments } from '~/stripe'
+import { auth } from '~/firebase/firebase'
+interface PageStripeData {
+  products: Product[],
+  subscriptions: Subscription[],
+  uid: string | null,
+  isLoading: boolean
+}
+export default Vue.extend({
+  name: 'Stripe',
+  data(): PageStripeData {
+    return {
+      products: [] as Product[],
+      subscriptions: [] as Subscription[],
+      uid: null,
+      isLoading: false
+    }
+  },
+  async created() {
+    await signInAnonymously(auth)
+    const products = await getProducts(payments, {
+      includePrices: true,
+      activeOnly: true,
+    })
+    this.products = products
+    onCurrentUserSubscriptionUpdate(payments, snapshot => {
+      this.subscriptions = snapshot.changes.map(value => value.subscription)
+    })
+  },
+  methods: {
+    async onClickPurchase(priceId: string): Promise<void> {
+      this.isLoading = true
+      try {
+        const session = await createCheckoutSession(payments, {
+          price: priceId,
+          success_url: window.location.origin,
+          cancel_url: window.location.origin
+        })
+        window.location.assign(session.url)
+      } catch (error) {
+        alert(error)
+      } finally {
+        this.isLoading = false
+      }
+    },
+    getProductTitle(productId: string): string {
+      return this.products.find(product => product.id === productId)?.name ?? ''
+    }
+  }
+})
+</script>
